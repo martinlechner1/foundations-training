@@ -8,7 +8,7 @@ import exercises.function.HttpClientBuilder._
 
 import scala.annotation.tailrec
 import scala.concurrent.duration._
-import scala.util.Random
+import scala.util.{Failure, Random, Success, Try}
 
 // you can run and print things here
 object FunctionApp extends App {
@@ -28,7 +28,7 @@ object FunctionExercises {
   // Note: Try to use a higher-order function from the String API
   //       You can test this function in FunctionExercisesTest.scala
   def secret(text: String): String =
-    ???
+    text.map(_ => '*')
 
   def isValidUsernameCharacter(char: Char): Boolean =
     char.isLetterOrDigit || char == '-' || char == '_'
@@ -38,7 +38,7 @@ object FunctionExercises {
   // but     isValidUsername("*john*") == false
   // Note: Try to use `isValidUsernameCharacter` and a higher-order function from the String API.
   def isValidUsername(username: String): Boolean =
-    ???
+    username.forall(isValidUsernameCharacter)
 
   ///////////////////////
   // Exercise 2: Point
@@ -51,7 +51,7 @@ object FunctionExercises {
     // but     Point(0,-2,1).isPositive == false
     // Note: `isPositive` is a function defined within `Point` class, so `isPositive` has access to `x`, `y` and `z`.
     def isPositive: Boolean =
-      ???
+      List(x, y, z).forall(_ >= 0)
 
     // 2b. Implement `isEven` which returns true if `x`, `y` and `z` are all even numbers, false otherwise
     // such as Point(2, 4, 8).isEven == true
@@ -60,7 +60,7 @@ object FunctionExercises {
     // Note: You can use `% 2` to check if a number is odd or even,
     // e.g. 8 % 2 == 0 but 7 % 2 == 1
     def isEven: Boolean =
-      ???
+      List(x, y, z).forall(_ % 2 == 0)
 
     // 2c. Both `isPositive` and `isEven` check that a predicate holds for `x`, `y` and `z`.
     // Let's try to capture this pattern with a higher order function like `forAll`
@@ -68,7 +68,7 @@ object FunctionExercises {
     // but     Point(1,2,5).forAll(_ == 1) == false
     // Then, re-implement `isPositive` and `isEven` using `forAll`
     def forAll(predicate: Int => Boolean): Boolean =
-      ???
+      List(x, y, z).forall(predicate)
   }
 
   ////////////////////////////
@@ -78,8 +78,13 @@ object FunctionExercises {
   // very basic representation of JSON
   type Json = String
 
-  trait JsonDecoder[A] {
+  trait JsonDecoder[A] { self =>
     def decode(json: Json): A
+    def map[To](update: A => To): JsonDecoder[To] = (json: Json) => update(self.decode(json))
+    def orElse(decoder: JsonDecoder[A]): JsonDecoder[A] = (json: Json) => Try(self.decode(json)) match {
+      case Failure(_) => decoder.decode(json)
+      case Success(value)  => value
+    }
   }
 
   val intDecoder: JsonDecoder[Int] = new JsonDecoder[Int] {
@@ -103,7 +108,7 @@ object FunctionExercises {
   // but     userIdDecoder.decode("hello") would throw an Exception
   case class UserId(value: Int)
   lazy val userIdDecoder: JsonDecoder[UserId] =
-    ???
+    (json: Json) => UserId(intDecoder.decode(json))
 
   // 3b. Implement `localDateDecoder`, a `JsonDecoder` for `LocalDate`
   // such as localDateDecoder.decode("\"2020-03-26\"") == LocalDate.of(2020,3,26)
@@ -112,13 +117,13 @@ object FunctionExercises {
   // Note: You can parse a `LocalDate` using `LocalDate.parse` with a java.time.format.DateTimeFormatter
   // e.g. DateTimeFormatter.ISO_LOCAL_DATE
   lazy val localDateDecoder: JsonDecoder[LocalDate] =
-    ???
+  stringDecoder.map(LocalDate.parse)
 
   // 3c. Implement `map` a generic function that converts a `JsonDecoder` of `From`
   // into a `JsonDecoder` of `To`.
   // Bonus: Can you re-implement `userIdDecoder` and `localDateDecoder` using `map`
   def map[From, To](decoder: JsonDecoder[From], update: From => To): JsonDecoder[To] =
-    ???
+    (json: Json) => update(decoder.decode(json))
 
   // 3d. Move `map` inside of `JsonDecoder` trait so that we can use the syntax
   // `intDecoder.map(_ + 1)` instead of `map(intDecoder)(_ + 1)`
@@ -132,7 +137,7 @@ object FunctionExercises {
   // Try to think how we could extend JsonDecoder so that we can easily implement
   // other decoders that follow the same pattern.
   lazy val weirdLocalDateDecoder: JsonDecoder[LocalDate] =
-    ???
+    localDateDecoder.orElse(intDecoder.map(x => LocalDate.ofEpochDay(x)))
 
   ///////////////////////////////
   // Exercise 4: Data processing

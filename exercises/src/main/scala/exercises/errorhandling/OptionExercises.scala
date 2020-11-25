@@ -25,7 +25,9 @@ object OptionExercises {
   def getUserEmail(id: UserId, users: Map[UserId, User]): Option[Email] = ???
 
   case class User(id: UserId, name: String, email: Option[Email])
+
   case class UserId(value: Long)
+
   case class Email(value: String)
 
   sealed trait Role {
@@ -44,12 +46,16 @@ object OptionExercises {
   }
 
   object Role {
+
     // A Reader has a read-only access to a single account
     case class Reader(accountId: AccountId, premiumUser: Boolean) extends Role
+
     // An Editor has edit access to a single account
     case class Editor(accountId: AccountId, favoriteFont: String) extends Role
+
     // An Admin has complete power over all accounts
     case object Admin extends Role
+
   }
 
   case class AccountId(value: Long)
@@ -63,15 +69,19 @@ object OptionExercises {
   /////////////////////////
 
   sealed trait Shape extends Product with Serializable
+
   object Shape {
-    case class Circle(radius: Int)                extends Shape
+
+    case class Circle(radius: Int) extends Shape
+
     case class Rectangle(width: Int, height: Int) extends Shape
+
   }
 
   def parseCircle(inputLine: String): InvOption[Circle] =
     inputLine.split(" ").toList match {
       case "C" :: IntParser(radius) :: Nil => InvOption.Some(Circle(radius))
-      case _                               => InvOption.None()
+      case _ => InvOption.None()
     }
 
   // 2a. Implement `parseRectangle` which parses a user input line (e.g. from the command line) into a `Rectangle`.
@@ -102,7 +112,7 @@ object OptionExercises {
   // such as filterDigits(List('a', '1', 'b', 'c', '4')) == List(1, 4)
   // Note: use `charToDigit`.
   def filterDigits(characters: List[Char]): List[Int] =
-    ???
+    characters.flatMap(charToDigit)
 
   def charToDigit(char: Char): Option[Int] =
     char match {
@@ -116,7 +126,7 @@ object OptionExercises {
       case '7' => Some(7)
       case '8' => Some(8)
       case '9' => Some(9)
-      case _   => None
+      case _ => None
     }
 
   // 3b. Implement `checkAllDigits` which verifies that all input characters are digits
@@ -129,8 +139,8 @@ object OptionExercises {
   def listSequence[A](elements: List[Option[A]]): Option[List[A]] =
     elements.foldRight(Option(List.empty[A])) {
       case (Some(a), Some(state)) => Some(a :: state)
-      case (None, _)              => None
-      case (_, None)              => None
+      case (None, _) => None
+      case (_, None) => None
     }
 
   def listTraverse[A, B](xs: List[A])(f: A => Option[B]): Option[List[B]] =

@@ -15,19 +15,19 @@ class FunctionExercisesTest extends AnyFunSuite with ScalaCheckDrivenPropertyChe
   /////////////////////////////////////////////////////
 
   // replace `ignore` by `test` to enable the test
-  ignore("secret examples") {
+  test("secret examples") {
     assert(secret("hello world") == "***********")
     assert(secret("") == "")
   }
 
   // replace `ignore` by `test` to enable the test
-  ignore("secret doesn't change the length") {
+  test("secret doesn't change the length") {
     forAll { (text: String) =>
       assert(secret(text).length == text.length)
     }
   }
 
-  ignore("isValidUsername") {
+  test("isValidUsername") {
     assert(isValidUsername("john-doe"))
     assert(!isValidUsername("*john*"))
   }
@@ -36,19 +36,19 @@ class FunctionExercisesTest extends AnyFunSuite with ScalaCheckDrivenPropertyChe
   // Exercise 2: Point
   ///////////////////////
 
-  ignore("isPositive") {
+  test("isPositive") {
     assert(Point(2, 4, 9).isPositive)
     assert(Point(0, 0, 0).isPositive)
     assert(!Point(0, -2, 1).isPositive)
   }
 
-  ignore("isEven") {
+  test("isEven") {
     assert(Point(2, 4, 8).isEven)
     assert(Point(0, -8, -2).isEven)
     assert(!Point(3, -2, 0).isEven)
   }
 
-  ignore("forAll") {
+  test("forAll") {
     assert(Point(1, 1, 1).forAll(_ == 1))
     assert(!Point(1, 2, 5).forAll(_ == 1))
   }
@@ -71,7 +71,7 @@ class FunctionExercisesTest extends AnyFunSuite with ScalaCheckDrivenPropertyChe
     }
   }
 
-  ignore("JsonDecoder UserId") {
+  test("JsonDecoder UserId") {
     assert(userIdDecoder.decode("1234") == UserId(1234))
     assert(userIdDecoder.decode("-1") == UserId(-1))
 
@@ -79,13 +79,13 @@ class FunctionExercisesTest extends AnyFunSuite with ScalaCheckDrivenPropertyChe
     assert(Try(userIdDecoder.decode("1111111111111111")).isFailure)
   }
 
-  ignore("JsonDecoder LocalDate") {
+  test("JsonDecoder LocalDate") {
     assert(localDateDecoder.decode("\"2020-03-26\"") == LocalDate.of(2020, 3, 26))
     assert(Try(localDateDecoder.decode("2020-03-26")).isFailure)
     assert(Try(localDateDecoder.decode("hello")).isFailure)
   }
 
-  ignore("JsonDecoder weirdLocalDateDecoder") {
+  test("JsonDecoder weirdLocalDateDecoder") {
     val date = LocalDate.of(2020, 3, 26)
     assert(weirdLocalDateDecoder.decode("\"2020-03-26\"") == date)
     assert(weirdLocalDateDecoder.decode("18347") == date)

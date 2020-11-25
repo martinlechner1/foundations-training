@@ -26,7 +26,9 @@ class OptionExercisesTest extends AnyFunSuite with ScalaCheckDrivenPropertyCheck
     assert(parseShape("C 5") == InvOption.Some(Shape.Circle(5)))
   }
 
-  test("filterDigits") {}
+  test("filterDigits") {
+    assert(filterDigits(List('1','a','2')) == List(1,2))
+  }
 
   test("checkAllDigits") {}
 

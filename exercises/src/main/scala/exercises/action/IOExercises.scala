@@ -9,9 +9,10 @@ import scala.concurrent.duration._
 import scala.util.{Failure, Random, Success, Try}
 
 object IOExercisesApp extends App {
+
   import IOExercises._
 
-  unsafeConsoleProgram
+  userConsoleWithRetryProgram.unsafeRun()
 }
 
 object IOExercises {
@@ -28,7 +29,7 @@ object IOExercises {
     // dice.unsafeRun() == dice.unsafeRun(), in other words, you would get the same number every time.
     def succeed[A](constant: A): IO[A] =
       new IO[A] {
-        def unsafeRun(): A = ???
+        def unsafeRun(): A = constant
       }
 
     // 1b. Implement `effect` a constructor takes a block of code and evaluate it on every `unsafeRun`.
@@ -37,7 +38,7 @@ object IOExercises {
     // greeting.unsafeRun() // print "hello"
     def effect[A](block: => A): IO[A] =
       new IO[A] {
-        def unsafeRun(): A = ???
+        def unsafeRun(): A = block
       }
 
     // common alias for `succeed`
@@ -54,13 +55,13 @@ object IOExercises {
     // then it will return `()` (the only value of type Unit)
     // see `Thread.sleep`
     def sleep(duration: FiniteDuration): IO[Unit] =
-      ???
+      effect(Thread.sleep(duration.toMillis))
 
     // 1d. Implement `never` an IO that when you run it, blocks forever.
     // One way to see this is a program that sleeps forever.
     // What should be the return type of `never`
 
-//  val never: IO[???]
+    val never: IO[Unit] = never
   }
 
   /////////////////////
@@ -68,6 +69,7 @@ object IOExercises {
   /////////////////////
 
   trait IO[A] {
+
     import IO._
 
     def unsafeRun(): A
@@ -77,7 +79,7 @@ object IOExercises {
     // throw an exception inside `update`.
     // such as IO.succeed(4).map(_ + 1) == IO.succeed(5)
     def map[B](update: A => B): IO[B] =
-      ???
+      IO.effect(update(unsafeRun()))
 
     // `void` discards the value returned by the IO.
     // Use case:
@@ -93,7 +95,7 @@ object IOExercises {
     //   case Some(currentUser) => db.updateUser(user) // otherwise update existing user
     // }
     def flatMap[B](f: A => IO[B]): IO[B] =
-      ???
+      effect(f(unsafeRun()).unsafeRun())
 
     // `productL` and `productR` combines the effects of two IOs and discard the value of one them.
     // Use case:
@@ -126,7 +128,7 @@ object IOExercises {
     //         fail(new Exception("")).attempt == succeed(Failure(new Exception(""))).
     // Note that `attempt` guarantees `unsafeRun()` will not throw an exception.
     def attempt: IO[Try[A]] =
-      ???
+      effect(Try(unsafeRun()))
 
     // 2d. Implement `handleErrorWith` which allows to catch a failing IO
     // such as fail(new Exception("")).handleErrorWith(_ => someIO) == someIO
@@ -137,18 +139,32 @@ object IOExercises {
     // Use case:
     // handleErrorWith(e => IO.effect(log.error("Operation failed"), e))
     def handleErrorWith(f: Throwable => IO[A]): IO[A] =
-      ???
+      attempt.flatMap {
+        case Failure(err) => f(err)
+        case Success(value) => IO.pure(value)
+      }
 
     // 2e. Implement `retryOnce` which re-runs the current IO if it fails.
     // Try first to use `attempt`
     def retryOnce: IO[A] =
-      ???
+      handleErrorWith(_ => IO(unsafeRun()))
+
+    //    def retryTimes(times: Int): IO[A] =
+    //      attempt.handleErrorWith(err => if (times > 0) retryTimes(times - 1) else throw err).map(_.get)
 
     // 2f. Implement `retryUntilSuccess`
     // similar to `retryOnce` but it retries until the IO succeeds (potentially indefinitely)
     // sleep `waitBeforeRetry` between each retry
     // How would you update this method to implement an exponential back-off?
-    def retryUntilSuccess(waitBeforeRetry: FiniteDuration): IO[A] = ???
+    def retryUntilSuccess(waitBeforeRetry: FiniteDuration): IO[A] =
+      handleErrorWith(_ => sleep(waitBeforeRetry).flatMap(_ => retryUntilSuccess(waitBeforeRetry)))
+
+    def retryTimes(timesLeft: Int): IO[A] =
+      handleErrorWith(err => if (timesLeft > 0) {
+        retryTimes(timesLeft - 1)
+      } else {
+        effect(throw err)
+      })
   }
 
   ////////////////////
@@ -165,15 +181,19 @@ object IOExercises {
   // Which smart constructor of IO should you use?
   // I used "lazy" to avoid throwing an exception while `readLine` is no implemented
   lazy val readLine: IO[String] =
-    ???
+  IO.effect(unsafeReadLine)
 
   def writeLine(message: String): IO[Unit] =
-    ???
+    IO.effect(unsafeWriteLine(message))
 
   // 3b. Implement `consoleProgram` such as it is an IO version of `unsafeConsoleProgram`.
   // Try to re-use `readLine`, `writeLine` and IO combinators.
   lazy val consoleProgram: IO[String] =
-    ???
+  for {
+    _ <- writeLine("What's your name?")
+    name <- readLine
+    _ <- writeLine(s"Your name is $name")
+  } yield name
 
   def unsafeConsoleProgram: String = {
     println("What's your name?")
@@ -186,8 +206,20 @@ object IOExercises {
   // You may want to create helper methods to read an integer or the current time.
   case class User(name: String, age: Int, createdAt: Instant)
 
+  val readAge: IO[Int] = for {
+    _ <- writeLine("What's your age?")
+    age <- readLine
+    ageInt <- IO(age.toInt)
+  } yield ageInt
+
   lazy val userConsoleProgram: IO[User] =
-    ???
+    for {
+      _ <- writeLine("What's your name?")
+      name <- readLine
+      age <- readAge
+      timestamp <- IO(Instant.now())
+      _ <- writeLine(s"Your name is $name, Your age is ${age}")
+    } yield User(name, age, timestamp)
 
   def unsafeUserConsoleProgram: User = {
     println("What's your name?")
@@ -200,7 +232,13 @@ object IOExercises {
   // 3e. Implement `userConsoleWithRetryProgram`, a version of the previous program that retries
   // up to 3 times when reading the user's age.
   lazy val userConsoleWithRetryProgram: IO[User] =
-    ???
+  for {
+    _ <- writeLine("What's your name?")
+    name <- readLine
+    age <- readAge.retryTimes(3)
+    timestamp <- IO(Instant.now())
+    _ <- writeLine(s"Your name is $name, Your age is ${age}")
+  } yield User(name, age, timestamp)
 
   // 3f. How would you test these IO programs?
   // What are the issues with the current implementation?
@@ -210,7 +248,7 @@ object IOExercises {
   ////////////////////////
 
   trait Clock {
-    val readNow: IO[Instant]
+    def readNow: IO[Instant]
   }
 
   val systemClock: Clock = new Clock {
@@ -218,31 +256,39 @@ object IOExercises {
   }
 
   // 4a. Implement `testClock` which facilitates testing of a Clock API.
-  def testClock(constant: Instant): Clock = ???
+  def testClock(constant: Instant): Clock = new Clock {
+    val readNow: IO[Instant] = IO.pure(constant)
+  }
 
   trait Console {
     val readLine: IO[String]
+
     def writeLine(message: String): IO[Unit]
 
-    def readInt: IO[Int] = ???
+    def readInt: IO[Int] = readLine.flatMap(line => IO.effect(line.toInt))
   }
 
   val stdinConsole: Console = new Console {
-    val readLine: IO[String]                 = IO.effect(scala.io.StdIn.readLine())
+    val readLine: IO[String] = IO.effect(scala.io.StdIn.readLine())
+
     def writeLine(message: String): IO[Unit] = IO.effect(println(message))
   }
 
   // 4b. Implement `testConsole` which facilitates testing of a Console API.
   // Use both `testClock` and `testConsole` to write a test for `userConsoleProgram2` in IOExercisesTest
-  def testConsole(in: ListBuffer[String], out: ListBuffer[String]): Console =
-    ???
+  def testConsole(in: ListBuffer[String], out: ListBuffer[String]): Console = new Console {
+    override val readLine: IO[String] = IO.effect(in.remove(0))
+
+    override def writeLine(message: String): IO[Unit] = IO.effect(out.addOne(message))
+  }
+
 
   def userConsoleProgram2(console: Console, clock: Clock): IO[User] =
     for {
-      _         <- console.writeLine("What's your name?")
-      name      <- console.readLine
-      _         <- console.writeLine("What's your age?")
-      age       <- console.readInt
+      _ <- console.writeLine("What's your name?")
+      name <- console.readLine
+      _ <- console.writeLine("What's your age?")
+      age <- console.readInt
       createdAt <- clock.readNow
     } yield User(name, age, createdAt)
 
@@ -259,10 +305,12 @@ object IOExercises {
   // How would you test `deleteTwoOrders`?
   trait UserOrderApi {
     def getUser(userId: UserId): IO[User_V2]
+
     def deleteOrder(orderId: OrderId): IO[Unit]
   }
 
   case class UserId(value: String)
+
   case class OrderId(value: String)
 
   case class User_V2(userId: UserId, name: String, orderIds: List[OrderId])

@@ -47,7 +47,7 @@ class EitherExercisesTest extends AnyFunSuite with ScalaCheckDrivenPropertyCheck
   // 3. Advanced API
   //////////////////////////////////
 
-  ignore("validateUsername") {
+  test("validateUsername") {
     validateUsername("foo") == Right(Username("foo"))
     validateUsername("  foo ") == Right(Username("foo"))
     validateUsername("a!bc@£") == Left(InvalidCharacters("!@£".toList))
